@@ -1,0 +1,14 @@
+*.lastbuildstate
+*.tlog
+*.obj
+*.idb
+*.pdb
+*.vcxproj
+*.filters
+*.sdf
+*.sln
+*.suo
+*.exe
+*.ilk
+*.pdb
+*.vcxproj.user
