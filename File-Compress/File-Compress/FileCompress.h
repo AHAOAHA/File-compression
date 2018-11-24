@@ -24,7 +24,7 @@ struct HashInfo//哈希桶内的数据结构
 	{
 		return this->_count != h._count;
 	}
-	bool operator=(const HashInfo& h)
+	void operator=(const HashInfo& h)
 	{
 		this->_ch = h._ch;
 		this->_code = h._code;
@@ -76,7 +76,48 @@ public:
 		invalid._count = 0;
 
 		HuffmanTree<HashInfo> tree(_hashInfo, 256, invalid);
+
+		// 构建字符编码并将制造好的字符编码存进_hashInfo
+		MakeCode(tree.getroot());
+
+		//生成新文件的文件名，并以写入方式打开/创建新文件
+		std::string newfilename(filename);
+		newfilename += ".huffman";
+
+		//遍历源文件中的字符，根据_hashInfo中各个字符的编码生成新文件
+		MakeNewFile(newfilename);
+
+		
+		
+
 	}
+
+	void MakeCode(Node*& root)
+	{
+		if (root->_left == nullptr && root->_right == nullptr)
+		{
+			_hashInfo[root->_w._ch]._code = root->_w._code;
+			return;
+		}
+
+		if (root->_left)
+		{
+			root->_left->_w._code += root->_w._code + '0';
+		}
+		if (root->_right)
+		{
+			root->_right->_w._code = root->_w._code + '1';
+		}
+
+		MakeCode(root->_left);
+		MakeCode(root->_right);
+	}
+
+	void MakeNewFile(const std::string newfilename)
+	{
+		std::ofstream ofs(newfilename.c_str());
+	}
+
 	void UnCompress(char* filename);//解压缩
 private:
 	HashInfo _hashInfo[256];
