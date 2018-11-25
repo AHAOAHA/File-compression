@@ -66,7 +66,7 @@ public:
 	{
 		char ch;
 		std::ifstream ifs(filename);
-		
+
 		//遍历文件字符，统计文件中字符出现的次数
 		while (ifs.get(ch))
 		{
@@ -85,10 +85,46 @@ public:
 		newfilename += ".huffman";
 
 		//遍历源文件中的字符，根据_hashInfo中各个字符的编码生成新文件
-		MakeNewFile(newfilename);
 
-		
-		
+		std::ofstream ofs(newfilename);
+		//首先将文件的读取的位置重置，让ifs重新指向文件的开始
+		ifs.clear();
+		ifs.seekg(0);
+		char newch = '\0';
+		int pos = 0;
+		std::string tmpcode;
+		while (ifs.get(ch))
+		{
+			tmpcode = _hashInfo[ch]._code;
+			
+			for (size_t i = 0; i < tmpcode.size(); ++i)
+			{
+				if (tmpcode[i] == '0')
+				{
+					//1&0=0 1&1=1
+					newch = newch & (~(1 << pos));
+				}
+				else
+				{
+					//0|1=1 0|0=0
+					newch = newch | (1 << pos);
+				}
+				++pos;
+
+				if (pos == 8)
+				{
+					ofs.put(newch);
+					pos = 0;
+					newch = '\0';
+					tmpcode.clear();
+				}
+			}
+		}
+
+		if (pos != 0)
+		{
+			//源文件中的字符无法完美贴合
+		}
 
 	}
 
@@ -113,10 +149,7 @@ public:
 		MakeCode(root->_right);
 	}
 
-	void MakeNewFile(const std::string newfilename)
-	{
-		std::ofstream ofs(newfilename.c_str());
-	}
+	
 
 	void UnCompress(char* filename);//解压缩
 private:
