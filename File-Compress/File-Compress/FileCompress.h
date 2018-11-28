@@ -87,6 +87,19 @@ public:
 		//遍历源文件中的字符，根据_hashInfo中各个字符的编码生成新文件
 
 		std::ofstream ofs(newfilename);
+		//开始压缩之前，需要现在新文件头部写入各字符出现的次数
+		//用于在解压文件开始之前，重新构建huffman树
+		for (size_t i = 0; i < 256; ++i)
+		{
+			if (_hashInfo[i]._count > 0)
+			{
+				ofs.write((char*)&_hashInfo[i], sizeof(HashInfo));
+			}
+		}
+		HashInfo Chinfo;
+		Chinfo._count = 0;
+		ofs.write((char*)&Chinfo, sizeof(HashInfo));
+
 		//首先将文件的读取的位置重置，让ifs重新指向文件的开始
 		ifs.clear();
 		ifs.seekg(0);
@@ -123,9 +136,9 @@ public:
 
 		if (pos != 0)
 		{
-			//源文件中的字符无法完美贴合
+			//源文件中的字符无法完美贴合，直接将此时的值直接存入
+			ofs.put(newch);
 		}
-
 	}
 
 	void MakeCode(Node*& root)
@@ -151,7 +164,77 @@ public:
 
 	
 
-	void UnCompress(char* filename);//解压缩
+	void UnCompress(std::string filename)//解压缩
+	{
+		//打开压缩文件进行解压缩
+		std::ifstream ifs(filename.c_str());
+
+		//生成源文件名
+		std::string newfilename = filename.erase(filename.rfind('.'));
+		newfilename += ".unhuffman";
+		//打开新生成的源文件名
+		std::ofstream ofs(newfilename.c_str());
+
+		//重建huffman树，在压缩文件的头部保存的出现字符的信息，以_count为0的一个节点信息为结束标志
+		HashInfo CharInfo;
+		while (1)
+		{
+
+			ifs.read((char*)&CharInfo, sizeof(CharInfo));
+
+			if (CharInfo._count != 0)
+			{
+				_hashInfo[(unsigned int)CharInfo._ch]._count = CharInfo._count;
+				_hashInfo[(unsigned int)CharInfo._ch]._code = CharInfo._code;
+				//添加ch的_code
+			}
+			else
+			{
+				break;
+			}
+		}
+
+			//根据_hashInfo重建huffman树
+			HashInfo invalid;
+			invalid._count = 0;
+
+			HuffmanTree<HashInfo> tree(_hashInfo, 256, invalid);
+
+			//根据重建的huffman树恢复文件
+
+			int pos = 0;
+			char ch = '\0';
+			Node* root = tree.getroot();
+			int count = root->_w._count;
+			Node* ptr = root;
+			while (ifs.get(ch))
+			{
+				
+				for (size_t pos = 0; pos < 8; ++pos)
+				{
+					if (((1 << pos)&ch) != 0)
+					{
+						ptr = ptr->_right;
+					}
+					if (((1 << pos) & ch) == 0)
+					{
+						ptr = ptr->_left;
+					}
+					if (count == 0)
+						break;
+
+					if (ptr->_left == nullptr && ptr->_right == nullptr)
+					{
+						ofs.put(ptr->_w._ch);
+						ptr = root;
+						count--;
+					}
+				}
+			}
+
+		
+	}
+
 private:
 	HashInfo _hashInfo[256];
 };
@@ -160,4 +243,12 @@ void TestCompress(const char* filename)
 {
 	FileCompress fc;
 	fc.Compress(filename);
+}
+
+void TestUnCompress(std::string filename)
+{
+	FileCompress fc;
+	fc.UnCompress(filename);
+	
+
 }
