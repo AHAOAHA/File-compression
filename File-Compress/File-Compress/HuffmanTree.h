@@ -88,7 +88,7 @@ public:
 			left->_parent = parent;
 			right->_parent = parent;
 
-			minheap.push(&*parent);
+			minheap.push(parent);
 		}
 		_root = minheap.top();
 		minheap.pop();

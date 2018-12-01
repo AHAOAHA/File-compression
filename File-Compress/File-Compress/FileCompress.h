@@ -54,6 +54,17 @@ struct HashInfo//哈希桶内的数据结构
 };
 
 
+struct CharInfo
+{
+	CharInfo()
+		:_ch('\0')
+		, _count(0)
+	{}
+	char _ch;
+	size_t _count;
+};
+
+
 class FileCompress
 {
 	typedef HuffmanTreeNode<HashInfo> Node;
@@ -67,14 +78,12 @@ public:
 		}
 		std::cout << "FileCompress()" << std::endl;
 	}
-	~FileCompress()
-	{
-		std::cout << "~FileCompress()" << std::endl;
-	}
-	void Compress(std::string filename)//压缩
+	
+	void Compress(const char* file)//压缩
 	{
 		char ch;
-		std::ifstream ifs(filename.c_str());
+		std::string filename(file);
+		std::ifstream ifs(file);
 		
 
 		//遍历文件字符，统计文件中字符出现的次数
@@ -92,8 +101,9 @@ public:
 		MakeCode(tree.getroot());
 
 		//生成新文件的文件名，并以写入方式打开/创建新文件
-		std::string newfilename(filename);
-		newfilename += ".huffman";
+		
+		filename += ".huffman";
+		const std::string newfilename(filename);
 
 		//遍历源文件中的字符，根据_hashInfo中各个字符的编码生成新文件
 
@@ -101,16 +111,19 @@ public:
 		
 		//开始压缩之前，需要现在新文件头部写入各字符出现的次数
 		//用于在解压文件开始之前，重新构建huffman树
+		CharInfo chInfo;
 		for (size_t i = 0; i < 256; ++i)
 		{
 			if (_hashInfo[i]._count > 0)
 			{
-				ofs.write((char*)&_hashInfo[i], sizeof(HashInfo));
+				chInfo._ch = _hashInfo[i]._ch;
+				chInfo._count = _hashInfo[i]._count;
+				ofs.write((char*)&chInfo, sizeof(CharInfo));
 			}
 		}
-		HashInfo end;
+		CharInfo end;
 		end._count = 0;
-		ofs.write((char*)&end, sizeof(HashInfo));
+		ofs.write((char*)&end, sizeof(CharInfo));
 
 		//首先将文件的读取的位置重置，让ifs重新指向文件的开始
 		ifs.clear();
@@ -141,7 +154,7 @@ public:
 					ofs.put(newch);
 					pos = 0;
 					newch = '\0';
-					tmpcode.clear();
+					tmpcode.resize(0);
 				}
 			}
 		}
@@ -170,34 +183,40 @@ public:
 			root->_right->_w._code = root->_w._code + '1';
 		}
 
-		MakeCode(root->_left);
-		MakeCode(root->_right);
+		if(root->_left)
+			MakeCode(root->_left);
+		if(root->_right)
+			MakeCode(root->_right);
 	}
 
 
 
-	void UnCompress(std::string filename)//解压缩
+
+	void UnCompress(const char* CompressFile)//解压缩
 	{
-		//打开压缩文件进行解压缩
-		std::ifstream ifs(filename.c_str());
+		//打开压缩文件
+		std::ifstream ifs(CompressFile);
 	
 		//生成源文件名
-		std::string newfilename = filename.erase(filename.rfind('.'));
-		newfilename += ".unhuffman";
+		std::string tmpnewfilename(CompressFile);
+		tmpnewfilename += ".unffman";
+		const std::string newfilename(tmpnewfilename);
+		
 
 		//打开新生成的源文件名
 		std::ofstream ofs(newfilename.c_str());
 		
 		//重建huffman树，在压缩文件的头部保存的出现字符的信息，以_count为0的一个节点信息为结束标志		
-		HashInfo Info;
-		while (true)
+		CharInfo chInfo;
+
+		while (1)
 		{
 
-			ifs.read((char*)&Info, sizeof(Info));
+			ifs.read((char*)&chInfo, sizeof(chInfo));
 
-			if (Info._count > 0)
+			if (chInfo._count > 0)
 			{
-				_hashInfo[(unsigned char)Info._ch]._count = Info._count;
+				_hashInfo[(unsigned char)chInfo._ch]._count = chInfo._count;
 				//_hashInfo[(unsigned char)CharInfo._ch]._code = CharInfo._code;
 				//添加ch的_code
 			}
@@ -208,18 +227,12 @@ public:
 
 		}
 
-
-
 		//根据_hashInfo重建huffman树,此处不能使用hashInfo桶的数据重新构建huffman树，因为当两个字符的权值相同时，不能保证两个字符的顺序一定相同
-		//所以此处创建新的huffman树时应该使用三叉链方法，也就是说让每一个节点增加一个指针并指向他的parent
 		HashInfo invalid;
 		invalid._count = 0;
 
 		HuffmanTree<HashInfo> tree(_hashInfo, 256, invalid);
-
-
 		//根据重建的huffman树恢复文件
-
 		int pos = 0;
 		char ch = '\0';
 		Node* root = tree.getroot();
@@ -232,15 +245,19 @@ public:
 			for (size_t pos = 0; pos < 8; ++pos)
 			{
 				if (count == 0)
+				{
 					break;
+				}
 
 				if (((1 << pos)&ch) != 0)
 				{
-					ptr = ptr->_right;
+					if(ptr->_right)
+						ptr = ptr->_right;
 				}
 				else if ((1 << pos&ch) == 0)
 				{
-					ptr = ptr->_left;
+					if(ptr->_left)
+						ptr = ptr->_left;
 				}
 				
 				if (ptr->_left == nullptr && ptr->_right == nullptr)
@@ -254,23 +271,22 @@ public:
 
 	}
 
+
+
+
 private:
 	HashInfo _hashInfo[256];
 };
 
-void TestCompress(std::string filename)
+void TestCompress(const char* file)
 {
 	FileCompress fc;
-	fc.Compress(filename);
+	fc.Compress(file);
+	
 }
 
-void TestUnCompress(std::string filename)
+void TestUnCompress(const char* CompressFile)
 {
 	FileCompress fc;
-	fc.UnCompress(filename);
-}
-
-void test()
-{
-	HuffmanTree<HashInfo> tree;
+	fc.UnCompress(CompressFile);
 }
