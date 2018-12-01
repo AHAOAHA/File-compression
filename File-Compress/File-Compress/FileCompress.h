@@ -73,7 +73,7 @@ public:
 	{
 		for (size_t i = 0; i < 256; ++i)//初始化哈希桶
 		{
-			_hashInfo[i]._ch = (char)i;
+			_hashInfo[i]._ch = (unsigned char)i;
 			_hashInfo[i]._count = 0;
 		}
 		std::cout << "FileCompress()" << std::endl;
@@ -83,7 +83,7 @@ public:
 	{
 		char ch;
 		std::string filename(file);
-		std::ifstream ifs(file);
+		std::ifstream ifs(file, std::ios::binary);
 		
 
 		//遍历文件字符，统计文件中字符出现的次数
@@ -107,7 +107,7 @@ public:
 
 		//遍历源文件中的字符，根据_hashInfo中各个字符的编码生成新文件
 
-		std::ofstream ofs(newfilename.c_str());
+		std::ofstream ofs(newfilename.c_str(), std::ios::binary);
 		
 		//开始压缩之前，需要现在新文件头部写入各字符出现的次数
 		//用于在解压文件开始之前，重新构建huffman树
@@ -130,13 +130,15 @@ public:
 		ifs.seekg(0);
 		char newch = '\0';
 		int pos = 0;
+		int len = 0;
 		std::string tmpcode;
 		while (ifs.get(ch))
 		{
-			tmpcode = _hashInfo[ch]._code;
+			tmpcode = _hashInfo[(unsigned char)ch]._code;
 
 			for (size_t i = 0; i < tmpcode.size(); ++i)
 			{
+				++len;
 				if (tmpcode[i] == '0')
 				{
 					//1&0=0 1&1=1
@@ -154,7 +156,6 @@ public:
 					ofs.put(newch);
 					pos = 0;
 					newch = '\0';
-					tmpcode.resize(0);
 				}
 			}
 		}
@@ -195,7 +196,7 @@ public:
 	void UnCompress(const char* CompressFile)//解压缩
 	{
 		//打开压缩文件
-		std::ifstream ifs(CompressFile);
+		std::ifstream ifs(CompressFile, std::ios::binary);
 	
 		//生成源文件名
 		std::string tmpnewfilename(CompressFile);
@@ -204,7 +205,7 @@ public:
 		
 
 		//打开新生成的源文件名
-		std::ofstream ofs(newfilename.c_str());
+		std::ofstream ofs(newfilename.c_str(), std::ios::binary);
 		
 		//重建huffman树，在压缩文件的头部保存的出现字符的信息，以_count为0的一个节点信息为结束标志		
 		CharInfo chInfo;
@@ -217,8 +218,7 @@ public:
 			if (chInfo._count > 0)
 			{
 				_hashInfo[(unsigned char)chInfo._ch]._count = chInfo._count;
-				//_hashInfo[(unsigned char)CharInfo._ch]._code = CharInfo._code;
-				//添加ch的_code
+				
 			}
 			else
 			{
@@ -233,6 +233,7 @@ public:
 
 		HuffmanTree<HashInfo> tree(_hashInfo, 256, invalid);
 		//根据重建的huffman树恢复文件
+
 		int pos = 0;
 		char ch = '\0';
 		Node* root = tree.getroot();
@@ -240,6 +241,7 @@ public:
 		Node* ptr = root;
 		while (ifs.get(ch))
 		{
+			//(int)ch < 0 ? ch *= -1 : ch;
 
 
 			for (size_t pos = 0; pos < 8; ++pos)
@@ -249,12 +251,12 @@ public:
 					break;
 				}
 
-				if (((1 << pos)&ch) != 0)
+				if ((1 << pos & ch) != 0)
 				{
 					if(ptr->_right)
 						ptr = ptr->_right;
 				}
-				else if ((1 << pos&ch) == 0)
+				else if ((1 << pos & ch) == 0)
 				{
 					if(ptr->_left)
 						ptr = ptr->_left;
